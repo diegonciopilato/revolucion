@@ -23,11 +23,12 @@ html, body{
 }
 
 #stage{
-    width:100vw;
-    height:100vh;
     display:flex;
     align-items:center;
     justify-content:center;
+    position:absolute;
+    top:0;
+    left:0;
 }
 
 canvas{
@@ -36,20 +37,17 @@ canvas{
     max-height:100%;
 }
 
-/* En mobile y en vertical, rotamos todo el escenario 90 grados
-   para que se vea horizontal automaticamente, sin pedir nada al usuario */
-@media screen and (max-width:900px) and (orientation:portrait){
-
-    #stage{
-        width:100vh;
-        height:100vw;
-        transform:rotate(90deg);
-        transform-origin:top left;
-        position:absolute;
-        top:0;
-        left:100%;
-    }
-
+#debug{
+    position:fixed;
+    bottom:5px;
+    left:5px;
+    color:#0f0;
+    font-family:monospace;
+    font-size:11px;
+    z-index:9999;
+    background:rgba(0,0,0,0.5);
+    padding:3px 6px;
+    pointer-events:none;
 }
 
 </style>
@@ -65,6 +63,8 @@ canvas{
 <canvas id="game" width="900" height="500"></canvas>
 </div>
 
+<div id="debug">audio: esperando toque...</div>
+
 
 
 <script>
@@ -75,8 +75,17 @@ const ctx=canvas.getContext("2d");
 
 const musica=document.getElementById("musica");
 
+const debugTxt=document.getElementById("debug");
+
+function mostrarDebug(texto){
+
+    debugTxt.textContent=texto;
+
+}
+
+
 // ==========================
-// AUDIO: intento de autoplay + fallback en primera interaccion
+// AUDIO: se desbloquea con el primer toque (requisito de iOS/Android)
 // ==========================
 
 let musicaSonando=false;
@@ -85,6 +94,7 @@ function intentarReproducirMusica(){
 
     if(musicaSonando) return;
 
+    musica.muted=false;
     musica.volume=1;
 
     let intento=musica.play();
@@ -93,13 +103,13 @@ function intentarReproducirMusica(){
 
         intento.then(function(){
 
-            // el navegador permitio el autoplay
             musicaSonando=true;
+
+            mostrarDebug("audio: sonando");
 
         }).catch(function(error){
 
-            // el navegador bloqueo el autoplay, se necesita interaccion
-            console.log("Autoplay bloqueado, esperando interaccion del usuario:",error);
+            mostrarDebug("audio: bloqueado - "+error.name+": "+error.message);
 
         });
 
@@ -107,26 +117,95 @@ function intentarReproducirMusica(){
 
 }
 
-// 1) Intentamos apenas carga la pagina (puede funcionar segun navegador/config)
-window.addEventListener("load", intentarReproducirMusica);
 
-// 2) Fallback: apenas haya CUALQUIER interaccion (touch, click o tecla),
-//    que va a pasar naturalmente cuando el usuario empiece a jugar,
-//    disparamos el audio. No es un boton dedicado, es la misma
-//    interaccion que ya usa el jugador para moverse/disparar.
+// Se dispara con el primer toque/click/tecla en cualquier parte de la pantalla.
+// No hace falta boton: alcanza con que el usuario empiece a jugar.
 function primeraInteraccion(){
 
     intentarReproducirMusica();
 
-    window.removeEventListener("pointerdown", primeraInteraccion);
-    window.removeEventListener("keydown", primeraInteraccion);
-    window.removeEventListener("touchstart", primeraInteraccion);
+}
+
+window.addEventListener("pointerdown", primeraInteraccion, {passive:true});
+window.addEventListener("touchstart", primeraInteraccion, {passive:true});
+window.addEventListener("keydown", primeraInteraccion);
+
+canvas.addEventListener("touchstart", primeraInteraccion, {passive:true});
+canvas.addEventListener("pointerdown", primeraInteraccion, {passive:true});
+
+
+// ==========================
+// ROTACION AUTOMATICA EN MOVIL
+// ==========================
+// Si el ancho de pantalla es menor que el alto (esta "parado"),
+// rotamos el escenario 90 grados para que se vea horizontal,
+// sin pedir permiso ni fullscreen.
+
+const stage=document.getElementById("stage");
+
+const ANCHO_JUEGO=900;
+const ALTO_JUEGO=500;
+
+let estaRotado=false;
+
+
+function ajustarPantalla(){
+
+    let anchoPantalla=window.innerWidth;
+    let altoPantalla=window.innerHeight;
+
+
+    if(altoPantalla>anchoPantalla){
+
+        estaRotado=true;
+
+        // ESTA VERTICAL -> rotamos
+
+        stage.style.width=altoPantalla+"px";
+        stage.style.height=anchoPantalla+"px";
+
+        stage.style.transform="rotate(90deg)";
+        stage.style.transformOrigin="top left";
+
+        stage.style.left=anchoPantalla+"px";
+        stage.style.top="0px";
+
+
+        let escala=Math.min(altoPantalla/ANCHO_JUEGO, anchoPantalla/ALTO_JUEGO);
+
+        canvas.style.width=(ANCHO_JUEGO*escala)+"px";
+        canvas.style.height=(ALTO_JUEGO*escala)+"px";
+
+
+    }else{
+
+        estaRotado=false;
+
+        // YA ESTA HORIZONTAL -> normal, sin rotar
+
+        stage.style.width=anchoPantalla+"px";
+        stage.style.height=altoPantalla+"px";
+
+        stage.style.transform="none";
+
+        stage.style.left="0px";
+        stage.style.top="0px";
+
+
+        let escala=Math.min(anchoPantalla/ANCHO_JUEGO, altoPantalla/ALTO_JUEGO);
+
+        canvas.style.width=(ANCHO_JUEGO*escala)+"px";
+        canvas.style.height=(ALTO_JUEGO*escala)+"px";
+
+    }
 
 }
 
-window.addEventListener("pointerdown", primeraInteraccion);
-window.addEventListener("keydown", primeraInteraccion);
-window.addEventListener("touchstart", primeraInteraccion);
+
+window.addEventListener("resize", ajustarPantalla);
+window.addEventListener("orientationchange", ajustarPantalla);
+
+ajustarPantalla();
 
 
 // ==========================
@@ -283,9 +362,33 @@ let toque=e.touches[0];
 let rect=canvas.getBoundingClientRect();
 
 
-jugador.x=toque.clientX-rect.left-50;
+let gameX, gameY;
 
-jugador.y=toque.clientY-rect.top-45;
+
+if(estaRotado){
+
+    // el canvas esta girado 90 grados, hay que "desgirar" el toque
+
+    let escala=rect.width/ALTO_JUEGO;
+
+    gameX=(toque.clientY-rect.top)/escala;
+
+    gameY=((rect.left+rect.width)-toque.clientX)/escala;
+
+}else{
+
+    let escala=rect.width/ANCHO_JUEGO;
+
+    gameX=(toque.clientX-rect.left)/escala;
+
+    gameY=(toque.clientY-rect.top)/escala;
+
+}
+
+
+jugador.x=gameX-50;
+
+jugador.y=gameY-45;
 
 
 limites();
