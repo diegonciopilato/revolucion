@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <meta charset="UTF-8">
@@ -7,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <title>Marx y Lenin contra los Burgueses</title>
+
 
 <style>
 
@@ -29,8 +31,11 @@ canvas{
 
 <body>
 
+<audio id="musica" src="musica.mp3" loop preload="auto"></audio>
+
 
 <canvas id="game" width="900" height="500"></canvas>
+
 
 
 <script>
@@ -39,11 +44,65 @@ canvas{
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
+const musica=document.getElementById("musica");
+
+// ==========================
+// AUDIO: intento de autoplay + fallback en primera interaccion
+// ==========================
+
+let musicaSonando=false;
+
+function intentarReproducirMusica(){
+
+    if(musicaSonando) return;
+
+    musica.volume=1;
+
+    let intento=musica.play();
+
+    if(intento!==undefined){
+
+        intento.then(function(){
+
+            // el navegador permitio el autoplay
+            musicaSonando=true;
+
+        }).catch(function(error){
+
+            // el navegador bloqueo el autoplay, se necesita interaccion
+            console.log("Autoplay bloqueado, esperando interaccion del usuario:",error);
+
+        });
+
+    }
+
+}
+
+// 1) Intentamos apenas carga la pagina (puede funcionar segun navegador/config)
+window.addEventListener("load", intentarReproducirMusica);
+
+// 2) Fallback: apenas haya CUALQUIER interaccion (touch, click o tecla),
+//    que va a pasar naturalmente cuando el usuario empiece a jugar,
+//    disparamos el audio. No es un boton dedicado, es la misma
+//    interaccion que ya usa el jugador para moverse/disparar.
+function primeraInteraccion(){
+
+    intentarReproducirMusica();
+
+    window.removeEventListener("pointerdown", primeraInteraccion);
+    window.removeEventListener("keydown", primeraInteraccion);
+    window.removeEventListener("touchstart", primeraInteraccion);
+
+}
+
+window.addEventListener("pointerdown", primeraInteraccion);
+window.addEventListener("keydown", primeraInteraccion);
+window.addEventListener("touchstart", primeraInteraccion);
 
 
-// =====================
+// ==========================
 // IMAGENES
-// =====================
+// ==========================
 
 
 let fondo=new Image();
@@ -62,8 +121,16 @@ let burgues=new Image();
 burgues.src="burgues.png";
 
 
+let jefeImg=new Image();
+jefeImg.src="jefe.png";
+
+
 let balaImg=new Image();
 balaImg.src="bala.png";
+
+
+let fuegoImg=new Image();
+fuegoImg.src="fuego.png";
 
 
 let corazon=new Image();
@@ -75,9 +142,10 @@ plusvalia.src="plusvalia.png";
 
 
 
-// =====================
+
+// ==========================
 // JUGADOR
-// =====================
+// ==========================
 
 
 let jugador={
@@ -98,31 +166,38 @@ vidas:3
 
 
 
-// =====================
+// ==========================
 // OBJETOS
-// =====================
+// ==========================
 
 
 let balas=[];
 
 let enemigos=[];
 
+let fuegos=[];
+
 let corazones=[];
 
 let plus=[];
 
 
+let jefe=null;
 
-// =====================
+
+let burguesesDerrotados=0;
+
+
+
+// ==========================
 // TECLADO
-// =====================
+// ==========================
 
 
 let teclas={};
 
 
-
-document.addEventListener("keydown",e=>{
+document.addEventListener("keydown",function(e){
 
 
 teclas[e.key]=true;
@@ -139,7 +214,7 @@ disparar();
 
 
 
-document.addEventListener("keyup",e=>{
+document.addEventListener("keyup",function(e){
 
 teclas[e.key]=false;
 
@@ -148,15 +223,16 @@ teclas[e.key]=false;
 
 
 
-// =====================
-// CONTROL TACTIL
-// =====================
+// ==========================
+// CONTROL MOVIL
+// ==========================
 
 
 
 canvas.addEventListener("touchstart",function(e){
 
 e.preventDefault();
+
 
 disparar();
 
@@ -169,9 +245,7 @@ disparar();
 
 canvas.addEventListener("touchmove",function(e){
 
-
 e.preventDefault();
-
 
 
 let toque=e.touches[0];
@@ -180,19 +254,13 @@ let toque=e.touches[0];
 let rect=canvas.getBoundingClientRect();
 
 
-let x=toque.clientX-rect.left;
+jugador.x=toque.clientX-rect.left-50;
 
-let y=toque.clientY-rect.top;
-
-
-
-jugador.x=x-50;
-
-jugador.y=y-45;
-
+jugador.y=toque.clientY-rect.top-45;
 
 
 limites();
+
 
 
 },{passive:false});
@@ -201,9 +269,9 @@ limites();
 
 
 
-// =====================
-// DISPARO
-// =====================
+// ==========================
+// DISPARAR
+// ==========================
 
 
 function disparar(){
@@ -230,18 +298,23 @@ velocidad:10
 
 
 
-// =====================
-// CREAR ENEMIGOS
-// =====================
+// ==========================
+// CREAR BURGUESES
+// ==========================
 
 
-setInterval(()=>{
+setInterval(function(){
+
+
+
+if(!jefe){
 
 
 enemigos.push({
 
 
 x:900,
+
 
 y:Math.random()*410,
 
@@ -251,11 +324,17 @@ w:70,
 h:90,
 
 
-velocidad:2
+velocidad:2,
 
+
+vida:1
 
 
 });
+
+
+}
+
 
 
 },1500);
@@ -263,15 +342,57 @@ velocidad:2
 
 
 
-// =====================
+
+
+// ==========================
+// APARICION DEL JEFE
+// ==========================
+
+
+setInterval(function(){
+
+
+if(jefe){
+
+
+fuegos.push({
+
+
+x:jefe.x,
+
+y:jefe.y+70,
+
+
+w:40,
+
+h:40,
+
+
+velocidad:6
+
+
+});
+
+
+}
+
+
+
+},1000);
+
+
+
+
+
+// ==========================
 // COLISION
-// =====================
+// ==========================
 
 
 function choque(a,b){
 
 
-return (
+return(
 
 a.x < b.x+b.w &&
 
@@ -289,9 +410,9 @@ a.y+a.h > b.y
 
 
 
-// =====================
+// ==========================
 // LIMITES
-// =====================
+// ==========================
 
 
 function limites(){
@@ -303,6 +424,7 @@ jugador.x=0;
 
 if(jugador.x>canvas.width-100)
 jugador.x=canvas.width-100;
+
 
 
 if(jugador.y<0)
@@ -318,31 +440,30 @@ jugador.y=canvas.height-100;
 
 
 
-// =====================
+// ==========================
 // ACTUALIZACION
-// =====================
+// ==========================
 
 
 function update(){
 
 
+// MOVIMIENTO TECLADO
 
-// movimiento teclado
 
-
-if(teclas["ArrowUp"]||teclas["w"])
+if(teclas["ArrowUp"] || teclas["w"])
 jugador.y-=jugador.velocidad;
 
 
-if(teclas["ArrowDown"]||teclas["s"])
+if(teclas["ArrowDown"] || teclas["s"])
 jugador.y+=jugador.velocidad;
 
 
-if(teclas["ArrowLeft"]||teclas["a"])
+if(teclas["ArrowLeft"] || teclas["a"])
 jugador.x-=jugador.velocidad;
 
 
-if(teclas["ArrowRight"]||teclas["d"])
+if(teclas["ArrowRight"] || teclas["d"])
 jugador.x+=jugador.velocidad;
 
 
@@ -352,7 +473,9 @@ limites();
 
 
 
-// balas
+// ==========================
+// BALAS
+// ==========================
 
 
 for(let i=balas.length-1;i>=0;i--){
@@ -365,15 +488,16 @@ b.x+=b.velocidad;
 
 
 
+// GOLPE A BURGUES
+
+
 for(let j=enemigos.length-1;j>=0;j--){
 
 
 let e=enemigos[j];
 
 
-
 if(choque(b,e)){
-
 
 
 enemigos.splice(j,1);
@@ -382,7 +506,10 @@ balas.splice(i,1);
 
 
 
-// plusvalia
+burguesesDerrotados++;
+
+
+
 
 
 plus.push({
@@ -396,8 +523,6 @@ tiempo:120
 });
 
 
-
-// corazon
 
 
 corazones.push({
@@ -414,21 +539,124 @@ h:35
 
 
 
+
+
+if(burguesesDerrotados>=12 && !jefe){
+
+
+jefe={
+
+
+x:750,
+
+y:170,
+
+
+w:130,
+
+h:160,
+
+
+vida:20,
+
+
+velocidad:1
+
+
+};
+
+
+burguesesDerrotados=0;
+
+
+}
+
+
+
 break;
 
 
 }
 
 
-}
-
 
 }
 
 
 
 
-// enemigos
+// GOLPE AL JEFE
+
+
+if(jefe && choque(b,jefe)){
+
+
+jefe.vida--;
+
+
+balas.splice(i,1);
+
+
+
+if(jefe.vida<=0){
+
+
+plus.push({
+
+x:jefe.x,
+
+y:jefe.y,
+
+tiempo:250
+
+});
+
+
+
+corazones.push({
+
+x:jefe.x,
+
+y:jefe.y,
+
+w:40,
+
+h:40
+
+});
+
+
+corazones.push({
+
+x:jefe.x+50,
+
+y:jefe.y,
+
+w:40,
+
+h:40
+
+});
+
+
+
+jefe=null;
+
+
+
+}
+
+
+
+}
+
+
+
+}
+
+// ==========================
+// MOVIMIENTO ENEMIGOS
+// ==========================
 
 
 for(let e of enemigos){
@@ -450,12 +678,87 @@ e.x=950;
 }
 
 
+
 }
 
 
 
 
-// corazones
+
+// ==========================
+// JEFE
+// ==========================
+
+
+if(jefe){
+
+
+jefe.x-=jefe.velocidad;
+
+
+
+if(jefe.x<550){
+
+jefe.x=550;
+
+}
+
+
+
+}
+
+
+
+
+
+// ==========================
+// FUEGOS DEL JEFE
+// ==========================
+
+
+for(let i=fuegos.length-1;i>=0;i--){
+
+
+let f=fuegos[i];
+
+
+f.x-=f.velocidad;
+
+
+
+if(choque(f,jugador)){
+
+
+jugador.vidas--;
+
+
+fuegos.splice(i,1);
+
+
+}
+
+
+
+if(f.x<0){
+
+
+fuegos.splice(i,1);
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+// ==========================
+// CORAZONES
+// ==========================
 
 
 for(let i=corazones.length-1;i>=0;i--){
@@ -464,27 +767,36 @@ for(let i=corazones.length-1;i>=0;i--){
 let c=corazones[i];
 
 
+
 if(choque(jugador,c)){
 
 
 
-if(jugador.vidas<5)
+if(jugador.vidas<5){
+
 jugador.vidas++;
+
+}
 
 
 
 corazones.splice(i,1);
 
 
-}
-
 
 }
 
 
 
+}
 
-// plusvalia desaparece
+
+
+
+
+// ==========================
+// PLUSVALIA
+// ==========================
 
 
 for(let i=plus.length-1;i>=0;i--){
@@ -493,7 +805,9 @@ for(let i=plus.length-1;i>=0;i--){
 plus[i].tiempo--;
 
 
-if(plus[i].tiempo<=0)
+
+if(plus[i].tiempo<=0){
+
 
 plus.splice(i,1);
 
@@ -507,27 +821,46 @@ plus.splice(i,1);
 
 
 
-// =====================
-// DIBUJO
-// =====================
+
+}
+
+
+
+
+
+
+
+// ==========================
+// DIBUJAR
+// ==========================
 
 
 function draw(){
 
 
 
+// FONDO
+
+
 ctx.drawImage(
+
 fondo,
+
 0,
+
 0,
+
 900,
+
 500
+
 );
 
 
 
 
-// Marx y Lenin
+
+// MARX
 
 
 ctx.drawImage(
@@ -544,6 +877,11 @@ jugador.y,
 
 );
 
+
+
+
+
+// LENIN
 
 
 ctx.drawImage(
@@ -563,7 +901,9 @@ jugador.y,
 
 
 
-// balas
+
+
+// BALAS
 
 
 for(let b of balas){
@@ -584,11 +924,15 @@ b.y,
 );
 
 
+
 }
 
 
 
-// burgueses
+
+
+
+// BURGUESES
 
 
 for(let e of enemigos){
@@ -609,11 +953,92 @@ e.y,
 );
 
 
+
 }
 
 
 
-// corazones
+
+
+
+// JEFE
+
+
+if(jefe){
+
+
+ctx.drawImage(
+
+jefeImg,
+
+jefe.x,
+
+jefe.y,
+
+130,
+
+160
+
+);
+
+
+
+// barra de vida
+
+
+ctx.fillStyle="red";
+
+
+ctx.fillRect(
+
+jefe.x,
+
+jefe.y-20,
+
+jefe.vida*6,
+
+12
+
+);
+
+
+
+}
+
+
+
+
+
+
+// FUEGOS
+
+
+for(let f of fuegos){
+
+
+ctx.drawImage(
+
+fuegoImg,
+
+f.x,
+
+f.y,
+
+40,
+
+40
+
+);
+
+
+}
+
+
+
+
+
+
+// CORAZONES
 
 
 for(let c of corazones){
@@ -634,11 +1059,15 @@ c.y,
 );
 
 
+
 }
 
 
 
-// plusvalia
+
+
+
+// PLUSVALIA
 
 
 for(let p of plus){
@@ -659,11 +1088,15 @@ p.y,
 );
 
 
+
 }
 
 
 
-// vidas
+
+
+
+// VIDAS
 
 
 ctx.fillStyle="white";
@@ -685,7 +1118,12 @@ ctx.fillText(
 
 
 
+
+// DERROTA
+
+
 if(jugador.vidas<=0){
+
 
 
 ctx.fillStyle="red";
@@ -695,13 +1133,14 @@ ctx.font="55px Arial";
 
 ctx.fillText(
 
-"FIN DE LA REVOLUCION",
+"FIN DE LA REVOLUCIÓN",
 
-400,
+120,
 
 250
 
 );
+
 
 
 return;
@@ -711,11 +1150,17 @@ return;
 
 
 
+
+
+
 requestAnimationFrame(loop);
 
 
 
 }
+
+
+
 
 
 
@@ -733,11 +1178,16 @@ draw();
 
 
 
-fondo.onload=()=>{
+
+
+fondo.onload=function(){
+
 
 loop();
 
+
 };
+
 
 
 
