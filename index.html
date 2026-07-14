@@ -37,19 +37,6 @@ canvas{
     max-height:100%;
 }
 
-#debug{
-    position:fixed;
-    bottom:5px;
-    left:5px;
-    color:#0f0;
-    font-family:monospace;
-    font-size:11px;
-    z-index:9999;
-    background:rgba(0,0,0,0.5);
-    padding:3px 6px;
-    pointer-events:none;
-}
-
 </style>
 
 </head>
@@ -63,8 +50,6 @@ canvas{
 <canvas id="game" width="900" height="500"></canvas>
 </div>
 
-<div id="debug">audio: esperando toque...</div>
-
 
 
 <script>
@@ -75,24 +60,19 @@ const ctx=canvas.getContext("2d");
 
 const musica=document.getElementById("musica");
 
-const debugTxt=document.getElementById("debug");
-
-function mostrarDebug(texto){
-
-    debugTxt.textContent=texto;
-
-}
-
 
 // ==========================
 // AUDIO: se desbloquea con el primer toque (requisito de iOS/Android)
 // ==========================
 
 let musicaSonando=false;
+let intentandoReproducir=false;
 
 function intentarReproducirMusica(){
 
-    if(musicaSonando) return;
+    if(musicaSonando || intentandoReproducir) return;
+
+    intentandoReproducir=true;
 
     musica.muted=false;
     musica.volume=1;
@@ -104,14 +84,17 @@ function intentarReproducirMusica(){
         intento.then(function(){
 
             musicaSonando=true;
-
-            mostrarDebug("audio: sonando");
+            intentandoReproducir=false;
 
         }).catch(function(error){
 
-            mostrarDebug("audio: bloqueado - "+error.name+": "+error.message);
+            intentandoReproducir=false;
 
         });
+
+    }else{
+
+        intentandoReproducir=false;
 
     }
 
@@ -120,18 +103,12 @@ function intentarReproducirMusica(){
 
 // Se dispara con el primer toque/click/tecla en cualquier parte de la pantalla.
 // No hace falta boton: alcanza con que el usuario empiece a jugar.
-function primeraInteraccion(){
+// Un solo tipo de evento por dispositivo, para no disparar play() dos veces
+// al mismo tiempo (eso hacia que el navegador aborte la reproduccion).
 
-    intentarReproducirMusica();
+window.addEventListener("pointerdown", intentarReproducirMusica, {passive:true});
+window.addEventListener("keydown", intentarReproducirMusica);
 
-}
-
-window.addEventListener("pointerdown", primeraInteraccion, {passive:true});
-window.addEventListener("touchstart", primeraInteraccion, {passive:true});
-window.addEventListener("keydown", primeraInteraccion);
-
-canvas.addEventListener("touchstart", primeraInteraccion, {passive:true});
-canvas.addEventListener("pointerdown", primeraInteraccion, {passive:true});
 
 
 // ==========================
