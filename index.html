@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<title>Marx y Lenin contra los Burgueses</title>
+
+<style>
+
+body{
+    margin:0;
+    overflow:hidden;
+    background:black;
+    touch-action:none;
+}
+
+canvas{
+    display:block;
+    margin:auto;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<canvas id="game" width="900" height="500"></canvas>
+
+
+<script>
+
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+
+
+// =====================
+// IMAGENES
+// =====================
+
+
+let fondo=new Image();
+fondo.src="fondo.png";
+
+
+let marx=new Image();
+marx.src="marx.png";
+
+
+let lenin=new Image();
+lenin.src="lenin.png";
+
+
+let burgues=new Image();
+burgues.src="burgues.png";
+
+
+let balaImg=new Image();
+balaImg.src="bala.png";
+
+
+let corazon=new Image();
+corazon.src="corazon.png";
+
+
+let plusvalia=new Image();
+plusvalia.src="plusvalia.png";
+
+
+
+// =====================
+// JUGADOR
+// =====================
+
+
+let jugador={
+
+x:100,
+
+y:220,
+
+w:100,
+
+h:90,
+
+velocidad:5,
+
+vidas:3
+
+};
+
+
+
+// =====================
+// OBJETOS
+// =====================
+
+
+let balas=[];
+
+let enemigos=[];
+
+let corazones=[];
+
+let plus=[];
+
+
+
+// =====================
+// TECLADO
+// =====================
+
+
+let teclas={};
+
+
+
+document.addEventListener("keydown",e=>{
+
+
+teclas[e.key]=true;
+
+
+if(e.code==="Space"){
+
+disparar();
+
+}
+
+
+});
+
+
+
+document.addEventListener("keyup",e=>{
+
+teclas[e.key]=false;
+
+});
+
+
+
+
+// =====================
+// CONTROL TACTIL
+// =====================
+
+
+
+canvas.addEventListener("touchstart",function(e){
+
+e.preventDefault();
+
+disparar();
+
+
+},{passive:false});
+
+
+
+
+
+canvas.addEventListener("touchmove",function(e){
+
+
+e.preventDefault();
+
+
+
+let toque=e.touches[0];
+
+
+let rect=canvas.getBoundingClientRect();
+
+
+let x=toque.clientX-rect.left;
+
+let y=toque.clientY-rect.top;
+
+
+
+jugador.x=x-50;
+
+jugador.y=y-45;
+
+
+
+limites();
+
+
+},{passive:false});
+
+
+
+
+
+// =====================
+// DISPARO
+// =====================
+
+
+function disparar(){
+
+
+balas.push({
+
+x:jugador.x+90,
+
+y:jugador.y+40,
+
+w:30,
+
+h:15,
+
+velocidad:10
+
+
+});
+
+
+}
+
+
+
+
+// =====================
+// CREAR ENEMIGOS
+// =====================
+
+
+setInterval(()=>{
+
+
+enemigos.push({
+
+
+x:900,
+
+y:Math.random()*410,
+
+
+w:70,
+
+h:90,
+
+
+velocidad:2
+
+
+
+});
+
+
+},1500);
+
+
+
+
+// =====================
+// COLISION
+// =====================
+
+
+function choque(a,b){
+
+
+return (
+
+a.x < b.x+b.w &&
+
+a.x+a.w > b.x &&
+
+a.y < b.y+b.h &&
+
+a.y+a.h > b.y
+
+);
+
+
+}
+
+
+
+
+// =====================
+// LIMITES
+// =====================
+
+
+function limites(){
+
+
+if(jugador.x<0)
+jugador.x=0;
+
+
+if(jugador.x>canvas.width-100)
+jugador.x=canvas.width-100;
+
+
+if(jugador.y<0)
+jugador.y=0;
+
+
+if(jugador.y>canvas.height-100)
+jugador.y=canvas.height-100;
+
+
+}
+
+
+
+
+// =====================
+// ACTUALIZACION
+// =====================
+
+
+function update(){
+
+
+
+// movimiento teclado
+
+
+if(teclas["ArrowUp"]||teclas["w"])
+jugador.y-=jugador.velocidad;
+
+
+if(teclas["ArrowDown"]||teclas["s"])
+jugador.y+=jugador.velocidad;
+
+
+if(teclas["ArrowLeft"]||teclas["a"])
+jugador.x-=jugador.velocidad;
+
+
+if(teclas["ArrowRight"]||teclas["d"])
+jugador.x+=jugador.velocidad;
+
+
+
+limites();
+
+
+
+
+// balas
+
+
+for(let i=balas.length-1;i>=0;i--){
+
+
+let b=balas[i];
+
+
+b.x+=b.velocidad;
+
+
+
+for(let j=enemigos.length-1;j>=0;j--){
+
+
+let e=enemigos[j];
+
+
+
+if(choque(b,e)){
+
+
+
+enemigos.splice(j,1);
+
+balas.splice(i,1);
+
+
+
+// plusvalia
+
+
+plus.push({
+
+x:e.x,
+
+y:e.y,
+
+tiempo:120
+
+});
+
+
+
+// corazon
+
+
+corazones.push({
+
+x:e.x,
+
+y:e.y,
+
+w:35,
+
+h:35
+
+});
+
+
+
+break;
+
+
+}
+
+
+}
+
+
+}
+
+
+
+
+// enemigos
+
+
+for(let e of enemigos){
+
+
+e.x-=e.velocidad;
+
+
+
+if(choque(jugador,e)){
+
+
+jugador.vidas--;
+
+
+e.x=950;
+
+
+}
+
+
+}
+
+
+
+
+// corazones
+
+
+for(let i=corazones.length-1;i>=0;i--){
+
+
+let c=corazones[i];
+
+
+if(choque(jugador,c)){
+
+
+
+if(jugador.vidas<5)
+jugador.vidas++;
+
+
+
+corazones.splice(i,1);
+
+
+}
+
+
+}
+
+
+
+
+// plusvalia desaparece
+
+
+for(let i=plus.length-1;i>=0;i--){
+
+
+plus[i].tiempo--;
+
+
+if(plus[i].tiempo<=0)
+
+plus.splice(i,1);
+
+
+}
+
+
+
+}
+
+
+
+
+// =====================
+// DIBUJO
+// =====================
+
+
+function draw(){
+
+
+
+ctx.drawImage(
+fondo,
+0,
+0,
+900,
+500
+);
+
+
+
+
+// Marx y Lenin
+
+
+ctx.drawImage(
+
+marx,
+
+jugador.x,
+
+jugador.y,
+
+60,
+
+80
+
+);
+
+
+
+ctx.drawImage(
+
+lenin,
+
+jugador.x+35,
+
+jugador.y,
+
+60,
+
+80
+
+);
+
+
+
+
+// balas
+
+
+for(let b of balas){
+
+
+ctx.drawImage(
+
+balaImg,
+
+b.x,
+
+b.y,
+
+30,
+
+15
+
+);
+
+
+}
+
+
+
+// burgueses
+
+
+for(let e of enemigos){
+
+
+ctx.drawImage(
+
+burgues,
+
+e.x,
+
+e.y,
+
+70,
+
+90
+
+);
+
+
+}
+
+
+
+// corazones
+
+
+for(let c of corazones){
+
+
+ctx.drawImage(
+
+corazon,
+
+c.x,
+
+c.y,
+
+35,
+
+35
+
+);
+
+
+}
+
+
+
+// plusvalia
+
+
+for(let p of plus){
+
+
+ctx.drawImage(
+
+plusvalia,
+
+p.x,
+
+p.y,
+
+50,
+
+50
+
+);
+
+
+}
+
+
+
+// vidas
+
+
+ctx.fillStyle="white";
+
+ctx.font="25px Arial";
+
+
+ctx.fillText(
+
+"Vida: "+jugador.vidas,
+
+20,
+
+35
+
+);
+
+
+
+
+
+if(jugador.vidas<=0){
+
+
+ctx.fillStyle="red";
+
+ctx.font="55px Arial";
+
+
+ctx.fillText(
+
+"FIN",
+
+400,
+
+250
+
+);
+
+
+return;
+
+
+}
+
+
+
+requestAnimationFrame(loop);
+
+
+
+}
+
+
+
+
+function loop(){
+
+
+update();
+
+draw();
+
+
+}
+
+
+
+
+fondo.onload=()=>{
+
+loop();
+
+};
+
+
+
+</script>
+
+
+</body>
+
+</html>
